@@ -1,0 +1,31 @@
+---
+- name: Append NFS lines to /etc/fstab (and mount)
+  hosts: all
+  become: true
+
+  vars:
+    fstab_lines:
+      - "10.0.0.1:/orcd/home /orcd/home  nfs  defaults 0 0"
+      - "10.0.0.1:/orcd/software /orcd/software  nfs  defaults 0 0"
+
+  tasks:
+    - name: Ensure mount points exist
+      ansible.builtin.file:
+        path: "{{ item.split()[1] }}"
+        state: directory
+        mode: "0755"
+      loop: "{{ fstab_lines }}"
+
+    - name: Add lines to /etc/fstab idempotently
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        line: "{{ item }}"
+        insertafter: EOF
+        create: yes
+        backup: yes
+      loop: "{{ fstab_lines }}"
+
+    - name: Mount all from fstab (optional)
+      ansible.builtin.command: mount -a
+      changed_when: false
+

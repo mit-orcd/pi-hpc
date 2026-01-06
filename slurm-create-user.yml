@@ -1,0 +1,17 @@
+# slurm-create-user.yml
+- name: Create slurm user on all compute nodes
+  hosts: compute
+  become: yes
+  tasks:
+    - name: Ensure slurm group exists
+      ansible.builtin.group:
+        name: slurm
+        state: present
+
+    - name: Ensure slurm user exists
+      ansible.builtin.user:
+        name: slurm
+        group: slurm
+        shell: /usr/sbin/nologin
+        system: yes
+

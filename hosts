@@ -1,0 +1,13 @@
+[controller]
+headnode ansible_host=10.0.0.1
+
+[compute]
+node1 ansible_host=10.0.0.51
+node2 ansible_host=10.0.0.52
+node3 ansible_host=10.0.0.53
+node4 ansible_host=10.0.0.54
+
+[all:vars]
+ansible_user = root
+ansible_password = orcd
+ansible_python_interpreter=/usr/bin/python3.13

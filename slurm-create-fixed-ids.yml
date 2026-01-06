@@ -1,0 +1,67 @@
+---
+- name: Create slurm user/group on all compute nodes with fixed UID/GID
+  hosts: compute
+  become: yes
+  gather_facts: yes
+
+  vars:
+    slurm_user: slurm
+    slurm_uid: 64030
+    slurm_gid: 64030
+    # Cross-distro nologin shell path
+    slurm_shell: >-
+      {{ '/usr/sbin/nologin' if (ansible_facts.os_family in ['Debian']) else
+         '/sbin/nologin' }}
+
+  pre_tasks:
+    - name: Check for conflicting existing user with UID {{ slurm_uid }}
+      ansible.builtin.command: "getent passwd {{ slurm_uid }}"
+      register: uid_conflict
+      changed_when: false
+      failed_when: false
+
+    - name: Check for conflicting existing group with GID {{ slurm_gid }}
+      ansible.builtin.command: "getent group {{ slurm_gid }}"
+      register: gid_conflict
+      changed_when: false
+      failed_when: false
+
+    - name: Fail if a different user/group already uses UID/GID {{ slurm_uid }}/{{ slurm_gid }}
+      ansible.builtin.fail:
+        msg: >-
+          Conflict detected on {{ inventory_hostname }}:
+          UID {{ slurm_uid }} or GID {{ slurm_gid }} is already in use by:
+          passwd={{ uid_conflict.stdout | default('none') }},
+          group={{ gid_conflict.stdout | default('none') }}.
+          Resolve the conflict (pick a different UID/GID or adjust existing accounts) and rerun.
+      when:
+        - (uid_conflict.stdout != '' and (uid_conflict.stdout.split(':')[0] != slurm_user))
+          or
+          (gid_conflict.stdout != '' and (gid_conflict.stdout.split(':')[0] != slurm_user))
+
+  tasks:
+    - name: Ensure slurm group exists with fixed GID
+      ansible.builtin.group:
+        name: "{{ slurm_user }}"
+        gid: "{{ slurm_gid }}"
+        state: present
+
+    - name: Ensure slurm user exists with fixed UID and primary group
+      ansible.builtin.user:
+        name: "{{ slurm_user }}"
+        uid: "{{ slurm_uid }}"
+        group: "{{ slurm_user }}"
+        shell: "{{ slurm_shell }}"
+        system: yes
+        state: present
+        # No supplementary groups required; uncomment if needed:
+        # groups: "{{ slurm_user }}"
+        # append: yes
+
+    - name: Verify slurm account attributes (debug)
+      ansible.builtin.debug:
+        msg:
+          passwd: "{{ lookup('ansible.builtin.password', '/dev/null') | default('') }}"
+          user_line: "{{ lookup('ansible.builtin.pipe', 'getent passwd ' ~ slurm_user) }}"
+          group_line: "{{ lookup('ansible.builtin.pipe', 'getent group ' ~ slurm_user) }}"
+

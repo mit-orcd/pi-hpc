@@ -1,0 +1,36 @@
+#nfs-mount-remove.yml
+---
+- name: Unmount and remove NFS entries from /etc/fstab
+  hosts: compute
+  become: true
+
+  vars:
+    nfs_mounts:
+      - src: "10.0.0.1:/orcd/home"
+        path: "/orcd/home"
+        fstype: "nfs"
+      - src: "10.0.0.1:/orcd/software"
+        path: "/orcd/software"
+        fstype: "nfs"
+
+  tasks:
+    - name: Unmount filesystems if mounted
+      ansible.builtin.mount:
+        path: "{{ item.path }}"
+        state: unmounted
+      loop: "{{ nfs_mounts }}"
+
+    - name: Remove entries from /etc/fstab
+      ansible.builtin.mount:
+        src: "{{ item.src }}"
+        path: "{{ item.path }}"
+        fstype: "{{ item.fstype }}"
+        state: absent
+      loop: "{{ nfs_mounts }}"
+
+    - name: (Optional) Remove mount point directories if empty
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ nfs_mounts }}"
+      when: remove_mount_points | default(false)

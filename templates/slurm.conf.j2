@@ -1,0 +1,25 @@
+# /etc/slurm/slurm.conf
+ClusterName=orcd
+SlurmctldHost=headnode
+
+# Auth
+AuthType=auth/munge
+
+# Ports
+SlurmctldPort=6817
+SlurmdPort=6818
+
+# Logging
+SlurmctldLogFile=/var/log/slurm/slurmctld.log
+SlurmdLogFile=/var/log/slurm/slurmd.log
+
+# State & PID
+SlurmctldPidFile=/run/slurmctld.pid
+SlurmdPidFile=/run/slurmd.pid
+
+# Scheduler
+SchedulerType=sched/backfill
+
+# Nodes — for a quick start, list them directly
+NodeName=node1,node2,node3,node4 State=UNKNOWN
+PartitionName=compute Nodes=node1,node2,node3,node4 Default=YES MaxTime=INFINITE State=UP

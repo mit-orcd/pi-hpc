@@ -1,0 +1,80 @@
+# /etc/ansible/slurm-controller.yml
+---
+- name: Install and configure Slurm controller
+  hosts: controller
+  become: true
+  gather_facts: true
+
+  vars:
+    cluster_name: "orcd"
+    slurm_user: "slurm"
+    slurm_log_dir: "/var/log/slurm"
+    munge_key_path: "/etc/munge/munge.key"
+
+  pre_tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+  tasks:
+    - name: Install controller packages
+      apt:
+        name:
+          - slurmctld
+          - slurm-client
+          - munge
+          - libmunge2
+        state: present
+
+    - name: Ensure log directory exists
+      file:
+        path: "{{ slurm_log_dir }}"
+        state: directory
+        owner: "{{ slurm_user }}"
+        group: "{{ slurm_user }}"
+        mode: "0755"
+
+    - name: Create munge key if missing
+      command: /usr/sbin/create-munge-key
+      args:
+        creates: "{{ munge_key_path }}"
+      notify: Restart munge
+
+    - name: Fetch munge key to control node (for distribution later)
+      fetch:
+        src: "{{ munge_key_path }}"
+        dest: "/etc/ansible/artifacts/{{ inventory_hostname }}/munge.key"
+        flat: true
+
+    - name: Deploy slurm.conf to controller
+      template:
+        src: templates/slurm.conf.j2
+        dest: /etc/slurm/slurm.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify:
+        - Restart slurmctld
+
+    - name: Enable and start munge
+      service:
+        name: munge
+        state: started
+        enabled: true
+
+    - name: Enable and start slurmctld
+      service:
+        name: slurmctld
+        state: started
+        enabled: true
+
+  handlers:
+    - name: Restart munge
+      service:
+        name: munge
+        state: restarted
+
+    - name: Restart slurmctld
+      service:
+        name: slurmctld
